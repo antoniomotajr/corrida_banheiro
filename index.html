@@ -1,0 +1,945 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>🚽 Corrida ao Banheiro</title>
+
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:Arial,Helvetica,sans-serif;background:#111;color:#fff}
+body{user-select:none}
+.game{position:relative;width:100%;height:100%;background:#10131a}
+.hud{position:absolute;z-index:40;top:12px;left:50%;transform:translateX(-50%);width:min(780px,96vw);display:flex;gap:12px;align-items:center;justify-content:center}
+.card{background:rgba(10,15,25,.9);border:2px solid rgba(255,255,255,.18);border-radius:16px;padding:9px 15px;box-shadow:0 8px 30px #0005;text-align:center}
+.timer{font-size:clamp(26px,5vw,48px);font-weight:900;color:#70ff9a;min-width:120px}
+.timer.danger{color:#ff4b4b;animation:pulse .35s infinite alternate}
+@keyframes pulse{to{transform:scale(1.07)}}
+.status{font-weight:800;font-size:clamp(14px,2vw,20px)}
+.hint{opacity:.8;font-size:13px}
+
+#world{position:absolute;inset:0;overflow:hidden;background:#1a1d23}
+.floor{position:absolute;left:4%;right:4%;top:18%;bottom:10%;background:
+repeating-linear-gradient(90deg,rgba(255,255,255,.05) 0 2px,transparent 2px 90px),
+repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 2px,transparent 2px 90px),
+linear-gradient(135deg,#c8c2b6,#9e978b);
+border-left:16px solid #666;border-right:16px solid #666;
+box-shadow:inset 0 0 0 5px #ece6da,0 10px 35px #0008}
+.wallTop,.wallBottom{position:absolute;left:4%;right:4%;height:5%;background:#e5e0d5;border:4px solid #8c8578;z-index:3}
+.wallTop{top:13%;box-shadow:0 7px 12px #0006}
+.wallBottom{bottom:5%;box-shadow:0 -7px 12px #0006}
+.room{position:absolute;z-index:2;background:#7f8fa0;border:4px solid #465463;border-radius:8px;color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;text-align:center;text-shadow:0 2px 3px #0008;box-shadow:0 6px 12px #0006}
+.room:after{content:"";position:absolute;width:44px;height:16px;bottom:-18px;left:50%;transform:translateX(-50%);background:#684b32;border:3px solid #3d2b1d;border-radius:3px}
+.room1{left:6%;top:3%;width:150px;height:15%}
+.room2{left:27%;top:3%;width:130px;height:15%}
+.room3{right:25%;top:3%;width:150px;height:15%}
+.room4{right:6%;top:3%;width:150px;height:15%}
+.room5{left:8%;bottom:0;width:150px;height:10%}
+.room6{left:33%;bottom:0;width:140px;height:10%}
+.room7{right:30%;bottom:0;width:150px;height:10%}
+.startDoor{position:absolute;z-index:8;left:7%;top:calc(18% + 5%);font-size:46px;filter:drop-shadow(0 5px 5px #0006)}
+.startLabel{position:absolute;z-index:8;left:6%;top:21%;font-size:12px;color:#fff;font-weight:900;text-shadow:0 2px 2px #000}
+.toiletArea{position:absolute;right:6%;top:18%;bottom:10%;width:12%;z-index:5;border-left:5px dashed rgba(70,70,70,.65);display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.12)}
+.toilet{font-size:clamp(64px,8vw,110px);filter:drop-shadow(0 8px 8px #0004)}
+.toiletLabel{position:absolute;right:6.5%;top:20%;z-index:8;font-size:13px;font-weight:900;color:#222;background:#fff;padding:4px 8px;border-radius:8px}
+.obstacle{position:absolute;width:48px;height:48px;border-radius:10px;background:#df6c38;border:4px solid #a94220;box-shadow:0 7px 12px #0004;z-index:9}
+.obstacle:before{content:"⚠";position:absolute;inset:5px;color:#fff;font-size:24px;text-align:center}
+.person{position:absolute;z-index:10;width:42px;height:42px;border-radius:50%;background:#ffd39a;border:4px solid #263143;box-shadow:0 6px 10px #0005}
+.person:before{content:"";position:absolute;width:30px;height:18px;background:#e35b5b;border-radius:12px 12px 5px 5px;left:2px;bottom:-18px;border:3px solid #263143}
+.person:after{content:"🙂";position:absolute;font-size:20px;left:7px;top:5px}
+.player{position:absolute;width:58px;height:58px;border-radius:50%;background:#ffd39a;border:5px solid #263143;z-index:15;box-shadow:0 7px 12px #0004;transition:transform .05s}
+.player:before{content:"";position:absolute;width:34px;height:18px;background:#2f69d9;border-radius:12px 12px 5px 5px;left:7px;bottom:-20px;border:3px solid #263143}
+.player:after{content:"😰";position:absolute;font-size:26px;left:11px;top:7px}
+
+.overlay{position:absolute;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(2px)}
+.panel{width:min(600px,90vw);padding:30px;border-radius:24px;text-align:center;background:#171b25;border:2px solid #ffffff2b;box-shadow:0 25px 80px #0008}
+.panel h1{font-size:clamp(30px,7vw,70px);margin:0 0 12px}.panel p{font-size:20px;opacity:.9}
+button{border:0;border-radius:14px;padding:15px 28px;font-size:18px;font-weight:900;cursor:pointer;background:#65f29a;color:#102016}
+#splat{position:absolute;inset:0;z-index:100;pointer-events:none;display:none;overflow:hidden;background:rgba(65,28,8,.22)}
+.blob{position:absolute;background:#704019;border-radius:48% 52% 44% 56%;box-shadow:inset -12px -10px 15px #3b1d0c88,0 3px 5px #160b05aa}
+.drip{position:absolute;width:clamp(10px,2vw,28px);background:#704019;border-radius:0 0 18px 18px;box-shadow:inset -5px 0 8px #3b1d0c66}
+#flash{position:absolute;inset:0;z-index:99;background:#fff;display:none;pointer-events:none}
+#message{position:absolute;z-index:110;left:50%;top:50%;transform:translate(-50%,-50%) scale(.6);text-align:center;display:none;width:90%;font-weight:1000;text-shadow:0 5px 0 #000,0 0 30px #000;color:#fff}
+#message strong{display:block;font-size:clamp(42px,10vw,110px);color:#ffef72}
+#message span{font-size:clamp(18px,3vw,30px)}
+#message .retryButton{
+  display:block;
+  margin:24px auto 0;
+  padding:14px 26px;
+  border:0;
+  border-radius:14px;
+  font-size:18px;
+  font-weight:900;
+  cursor:pointer;
+  background:#65f29a;
+  color:#102016;
+  box-shadow:0 5px 15px #0006;
+}
+#message .retryButton:hover{transform:scale(1.04)}
+
+.voiceCard{min-width:220px}
+#micButton{padding:10px 14px;font-size:15px;background:#65f29a;color:#102016}
+#micButton.active{background:#ff6b6b;color:#fff}
+#micButton:disabled{opacity:.55;cursor:not-allowed}
+#tiltButton{padding:10px 14px;font-size:15px;background:#65b8f2;color:#0d1b26}
+#tiltButton.active{background:#ff6b6b;color:#fff}
+#tiltButton:disabled{opacity:.55;cursor:not-allowed}
+.voiceStatus{font-size:12px;font-weight:800;margin-top:5px;opacity:.9}
+.recognized{font-size:14px;font-weight:900;margin-top:3px;color:#70ff9a;min-height:18px}
+.voiceListening{animation:pulse .7s infinite alternate}
+
+@keyframes slam{0%{transform:translate(-50%,-50%) scale(.5) rotate(-3deg);opacity:0}45%{transform:translate(-50%,-50%) scale(1.15) rotate(2deg);opacity:1}100%{transform:translate(-50%,-50%) scale(1) rotate(0);opacity:1}}
+@keyframes splatIn{0%{transform:scale(.05);opacity:0}45%{transform:scale(1.25);opacity:1}100%{transform:scale(1);opacity:1}}
+.shake{animation:shake .09s infinite}@keyframes shake{0%{transform:translate(0,0)}25%{transform:translate(8px,-5px)}50%{transform:translate(-7px,5px)}75%{transform:translate(5px,6px)}100%{transform:translate(-4px,-5px)}}
+.instructions{position:absolute;z-index:30;bottom:12px;left:50%;transform:translateX(-50%);background:#111d;padding:9px 15px;border-radius:12px;font-weight:700;text-align:center}
+/* Apresentação mobile / tela cheia */
+html,body{width:100%;height:100%;height:100dvh;min-height:100dvh}
+body{overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.game{width:100vw;height:100dvh;min-height:100dvh;overflow:hidden}
+@supports (padding: max(0px)){
+  .hud{padding-top:max(4px,env(safe-area-inset-top))}
+  .instructions{bottom:max(6px,env(safe-area-inset-bottom))}
+}
+.mobilePresentation{
+  position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
+  background:linear-gradient(145deg,#10131a,#202735);padding:24px;
+}
+.mobilePresentation.show{display:flex}
+.mobilePresentation .presentationPanel{
+  width:min(430px,92vw);padding:24px 20px;border-radius:24px;text-align:center;
+  background:#171b25;border:2px solid #ffffff22;box-shadow:0 20px 60px #0009;
+}
+.mobilePresentation h1{font-size:clamp(28px,8vw,42px);margin:0 0 8px}
+.mobilePresentation p{font-size:15px;line-height:1.45;opacity:.9;margin:8px 0 18px}
+#startFullscreenButton{width:100%;font-size:17px;padding:14px 18px}
+@media (orientation:portrait){
+  .hud{top:6px;width:96vw;gap:5px;align-items:stretch}
+  .card{padding:6px 9px;border-radius:12px}
+  .timer{font-size:clamp(22px,7vw,34px);min-width:86px}
+  .status{font-size:clamp(11px,3.2vw,16px)}
+  .hint{font-size:10px}
+  .voiceCard{min-width:0;flex:1}
+  #micButton{width:100%;padding:8px 7px;font-size:12px}
+  #tiltButton{width:100%;padding:8px 7px;font-size:12px}
+  #tiltHint{font-size:8px;line-height:1.2}
+  .voiceStatus,.recognized{font-size:9px}
+  #voiceHint{font-size:8px;line-height:1.2}
+  .instructions{font-size:11px;padding:7px 9px;max-width:92vw}
+  .player{width:48px;height:48px}
+}
+/* No celular, o jogo é apresentado em retrato (não exige paisagem). */
+.portraitOnlyNotice{
+  position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+  z-index:210;width:min(390px,90vw);padding:22px;border-radius:22px;
+  background:#171b25;border:2px solid #ffffff22;box-shadow:0 20px 60px #0009;
+  text-align:center;display:none
+}
+.portraitOnlyNotice h2{margin:0 0 8px;font-size:26px}
+.portraitOnlyNotice p{margin:0;opacity:.9;line-height:1.4}
+.mobilePresentation .presentationPanel{max-height:90dvh;overflow:auto}
+
+@media (orientation:landscape) and (max-height:500px){
+  .hud{top:3px;gap:4px}
+  .card{padding:4px 8px}
+  .timer{font-size:26px;min-width:75px}
+  .status{font-size:12px}
+  .hint{font-size:9px}
+  .voiceCard{min-width:170px}
+  .instructions{bottom:4px;font-size:10px;padding:5px 8px}
+}
+
+@media(max-width:650px){
+.room{display:none}.wallTop{top:15%;height:4%}.wallBottom{bottom:5%;height:5%}
+.floor{left:2%;right:2%;top:19%;bottom:10%;border-left-width:9px;border-right-width:9px}
+.toiletArea{right:2%;top:19%;bottom:10%;width:16%}.toiletLabel{right:3%;top:20%}
+.startDoor{left:4%;top:22%;font-size:38px}.startLabel{left:2%;top:26%}
+  .hud{flex-wrap:wrap;top:6px;gap:6px}.voiceCard{min-width:190px}.voiceStatus,.recognized{font-size:11px}
+.person{transform:scale(.85)}.obstacle{transform:scale(.85)}
+}
+</style>
+
+</head>
+<body>
+<div class="mobilePresentation" id="mobilePresentation">
+  <div class="presentationPanel">
+    <h1>🚽 Corrida ao Banheiro</h1>
+    <p>Jogo ajustado para a tela do celular em <b>modo retrato</b>.<br>
+    Ative a tela cheia para uma apresentação melhor.</p>
+    <button id="startFullscreenButton" type="button">📱 Entrar em tela inteira</button>
+  </div>
+</div>
+<div class="game" id="game">
+  <div class="cloud c1"></div><div class="cloud c2"></div>
+  <div class="hud">
+    <div class="card"><div class="hint">TEMPO RESTANTE</div><div class="timer" id="timer">30.0</div></div>
+    <div class="card">
+      <div class="status" id="status">LEVE A PESSOA AO BANHEIRO!</div>
+      <div class="hint">Use WASD, setas, voz ou incline o celular</div>
+    </div>
+    <div class="card voiceCard">
+      <button id="micButton" type="button" aria-pressed="false">🎤 Ativar microfone</button>
+      <div class="voiceStatus" id="voiceStatus">Microfone desligado</div>
+      <div class="recognized" id="recognizedCommand">Comando: —</div>
+      <div class="hint" id="voiceHint">🎤 Ligado = anda sozinho • Voz: Esquerda ↑ • Direita ↓ • Pare ⛔ • Siga ▶ retoma</div>
+    </div>
+    <div class="card voiceCard" id="tiltCard">
+      <button id="tiltButton" type="button" aria-pressed="false">📱 Ativar giroscópio</button>
+      <div class="voiceStatus" id="tiltStatus">Giroscópio desligado</div>
+      <div class="hint" id="tiltHint">Incline p/ os lados = desvia • Incline p/ frente = anda</div>
+    </div>
+  </div>
+  <div id="world">
+    <div class="floor"></div>
+    <div class="wallTop"></div><div class="wallBottom"></div>
+    <div class="room room1">SALA 1</div><div class="room room2">SALA 2</div>
+    <div class="room room3">SALA 3</div><div class="room room4">SALA 4</div>
+    <div class="room room5">SALA 5</div><div class="room room6">SALA 6</div><div class="room room7">SALA 7</div>
+    <div class="startDoor">🚪</div><div class="startLabel">SUA SALA</div>
+    <div class="toiletArea"><div class="toilet" id="toilet">🚽</div></div><div class="toiletLabel">BANHEIRO</div>
+    <div class="player" id="player"></div>
+  </div>
+  <div class="instructions">🏃 Chegue ao 🚽 antes do cronômetro zerar!</div>
+  <div class="overlay" id="win">
+    <div class="panel"><h1>🎉 CONSEGUIU!</h1><p>Chegou ao banheiro a tempo.</p><button onclick="restart()">Jogar novamente</button></div>
+  </div>
+  <div id="flash"></div><div id="splat"></div>
+
+  <!-- Áudios do jogo -->
+  <audio id="audioPeido" src="peido.mp3" preload="auto"></audio>
+  <audio id="audioDiarreia" src="diarreia.mp3" preload="auto"></audio>
+
+  <div id="message">
+    <strong>OPS! 💩</strong>
+    <span>NÃO DEU TEMPO!</span>
+    <button class="retryButton" onclick="restart()">Jogar novamente</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const game=document.getElementById('game'), world=document.getElementById('world');
+  const player=document.getElementById('player'), toilet=document.getElementById('toilet');
+  const toiletArea=document.querySelector('.toiletArea');
+  const timerEl=document.getElementById('timer'), statusEl=document.getElementById('status');
+  const splat=document.getElementById('splat'), flash=document.getElementById('flash');
+  const message=document.getElementById('message'), win=document.getElementById('win');
+  const audioPeido=document.getElementById('audioPeido'), audioDiarreia=document.getElementById('audioDiarreia');
+
+  const TOTAL=15;
+  let PW=58, PH=58; // medidos de verdade a partir do elemento (ver updatePlayerSize)
+  let time=TOTAL, running=true, last=performance.now(), x=0,y=0, keys={}, peidoPlaying=false;
+  let obstacles=[], people=[], corridor={left:0,right:0,top:0,bottom:0};
+
+  // Controle por voz — o personagem é guiado inteiramente pela voz no celular:
+  // "siga"     -> anda para a frente (em direção ao banheiro), continuamente;
+  // "pare"     -> para todo o movimento (frente e desvio);
+  // "esquerda" -> desvia para cima, mantendo o avanço se estiver andando;
+  // "direita"  -> desvia para baixo, mantendo o avanço se estiver andando.
+  let voiceForward=false;   // true = avançando em direção ao banheiro
+  let voiceVertical=0;      // -1 = cima, 1 = baixo, 0 = sem desvio
+  let recognition=null;
+  let recognitionStarting=false;
+  let recognitionSupported=true;
+  let micEnabled=false;
+
+  // Controle por giroscópio/acelerômetro (DeviceOrientation): incline o
+  // celular para os lados para desviar, e para frente para andar — funciona
+  // junto com a voz (o que estiver ativo no momento comanda o movimento).
+  let tiltEnabled=false;
+  let tiltVertical=0;       // -1 = cima, 1 = baixo, 0 = sem desvio
+  let tiltForward=false;
+  let tiltBaselineBeta=null;
+  let tiltListener=null;
+  const mobilePresentation=document.getElementById('mobilePresentation');
+  const startFullscreenButton=document.getElementById('startFullscreenButton');
+
+  function isMobileDevice(){
+    return /Android|webOS|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+           (window.matchMedia && window.matchMedia('(max-width: 650px)').matches);
+  }
+
+  async function enterFullscreen(){
+    try{
+      if(document.documentElement.requestFullscreen){
+        await document.documentElement.requestFullscreen({navigationUI:'hide'});
+      }else if(document.documentElement.webkitRequestFullscreen){
+        document.documentElement.webkitRequestFullscreen();
+      }
+    }catch(e){
+      // Alguns navegadores móveis bloqueiam fullscreen fora de um gesto do usuário.
+    }
+    mobilePresentation.classList.remove('show');
+    setTimeout(()=>{resetPosition();createEntities()},80);
+  }
+
+  function setupMobilePresentation(){
+    if(!isMobileDevice()) return;
+    mobilePresentation.classList.add('show');
+    startFullscreenButton.addEventListener('click',enterFullscreen);
+    // Depois que o usuário entra/sai da tela cheia, recalcula tudo para a nova área útil.
+    document.addEventListener('fullscreenchange',()=>setTimeout(()=>{resetPosition();createEntities()},100));
+    window.addEventListener('orientationchange',()=>setTimeout(()=>{resetPosition();createEntities()},250));
+    if(window.visualViewport){
+      window.visualViewport.addEventListener('resize',()=>setTimeout(()=>{resetPosition();createEntities()},80));
+    }
+
+    // O layout não depende de paisagem. Em retrato, ocupa a tela inteira;
+    // se o usuário girar o aparelho, o jogo continua funcionando sem exigir
+    // bloqueio de orientação.
+    const updateOrientationHint=()=>{
+      if(window.matchMedia && window.matchMedia('(orientation:portrait)').matches){
+        voiceStatus.textContent=micEnabled?'🟢 Ouvindo...':'Microfone desligado';
+      }
+    };
+    window.addEventListener('orientationchange',updateOrientationHint);
+    updateOrientationHint();
+  }
+
+  const micButton=document.getElementById('micButton');
+  const voiceStatus=document.getElementById('voiceStatus');
+  const recognizedCommand=document.getElementById('recognizedCommand');
+  const tiltButton=document.getElementById('tiltButton');
+  const tiltStatus=document.getElementById('tiltStatus');
+
+  function getCorridor(){
+    const floor=world.querySelector('.floor').getBoundingClientRect();
+    const wr=world.getBoundingClientRect();
+    corridor.left=floor.left-wr.left+16;
+    corridor.right=floor.right-wr.left-16;
+    corridor.top=floor.top-wr.top+8;
+    corridor.bottom=floor.bottom-wr.top-8;
+  }
+  // Mede o tamanho REAL do personagem na tela (a CSS reduz para 48px em telas
+  // pequenas) para que a colisão sempre bata com o que o jogador vê — antes,
+  // a colisão usava 58px fixos mesmo quando o círculo aparecia menor no
+  // celular, fazendo o personagem parecer "travado" sem motivo aparente.
+  function updatePlayerSize(){
+    const r=player.getBoundingClientRect();
+    if(r.width>0) PW=r.width;
+    if(r.height>0) PH=r.height;
+  }
+  function placePlayer(){player.style.left=x+'px';player.style.top=y+'px'}
+  function resetPosition(){
+    updatePlayerSize();
+    getCorridor();
+    x=corridor.left+18;
+    y=(corridor.top+corridor.bottom-PH)/2;
+    placePlayer();
+  }
+  function playAudio(audio,volume=1){
+    audio.volume=Math.max(0,Math.min(1,volume));
+    audio.currentTime=0;
+    const p=audio.play(); if(p&&p.catch)p.catch(()=>{});
+  }
+  function startPeido(){
+    if(!peidoPlaying){
+      peidoPlaying=true; audioPeido.loop=true; audioPeido.volume=1;
+      const p=audioPeido.play(); if(p&&p.catch)p.catch(()=>{});
+    }
+  }
+  function stopPeido(){audioPeido.pause();audioPeido.currentTime=0;peidoPlaying=false}
+
+  function clearEntities(){
+    obstacles.forEach(o=>o.el.remove()); people.forEach(p=>p.el.remove());
+    obstacles=[];people=[];
+  }
+  function addObstacle(px,py){
+    const el=document.createElement('div');el.className='obstacle';world.appendChild(el);
+    el.style.left=px+'px';el.style.top=py+'px';
+    const r=el.getBoundingClientRect();
+    obstacles.push({el,x:px,y:py,w:r.width||48,h:r.height||48});
+  }
+  function addPerson(px,py,dir=1){
+    const el=document.createElement('div');el.className='person';world.appendChild(el);
+    el.style.left=px+'px';el.style.top=py+'px';
+    const r=el.getBoundingClientRect();
+    const headW=r.width||42, headH=r.height||42;
+    // O visual do personagem tem um "corpo" (pseudo-elemento :before) que se
+    // projeta ~18px ABAIXO da cabeça (via bottom:-18px no CSS). Como isso
+    // fica fora da própria caixa do elemento, getBoundingClientRect() não
+    // inclui essa área — e o jogador conseguia passar roçando nela sem
+    // colidir. Ampliamos a altura da colisão para cobrir cabeça + corpo.
+    const scale=headW/42; // acompanha o transform:scale(.85) do celular
+    const bodyExtra=18*scale;
+    people.push({el,x:px,y:py,w:headW,h:headH+bodyExtra,dir,speed:45+Math.random()*35});
+  }
+  function createEntities(){
+    clearEntities(); getCorridor();
+    const usable=corridor.right-corridor.left;
+    const corridorH=corridor.bottom-corridor.top;
+
+    // 3 faixas cobrindo topo, MEIO e base do corredor — antes as 2 faixas
+    // ficavam nos extremos e deixavam o caminho reto (onde o personagem
+    // começa) completamente livre, dando a impressão de que só havia
+    // obstáculo "nas laterais". Agora sempre há obstáculo no caminho reto,
+    // exigindo desvio de verdade, mas com espaço generoso entre as faixas.
+    const obsBaseH=48;
+    const laneCount=3;
+    const laneSpan=Math.max(60,corridorH-obsBaseH-20);
+    const obsN=Math.max(5,Math.min(8,Math.floor(usable/160)));
+    for(let i=0;i<obsN;i++){
+      const px=corridor.left+150+i*((usable-320)/Math.max(1,obsN-1));
+      const lane=i%laneCount;
+      const py=corridor.top+10+lane*(laneSpan/(laneCount-1));
+      addObstacle(px,Math.min(corridor.bottom-obsBaseH,py));
+    }
+    const peopleN=Math.max(6,Math.min(12,Math.floor(usable/110)));
+    for(let i=0;i<peopleN;i++){
+      const px=corridor.left+100+Math.random()*(usable-260);
+      const py=corridor.top+20+Math.random()*Math.max(10,corridorH-70);
+      addPerson(px,Math.min(corridor.bottom-62,py),Math.random()>.5?1:-1);
+    }
+  }
+  function overlap(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
+
+  function finishWin(){
+    if(!running)return;
+    running=false; stopPeido(); playAudio(audioPeido,1); playAudio(audioDiarreia,1);
+    statusEl.textContent='BANHEIRO ALCANÇADO!';win.style.display='flex';
+  }
+  function splatEffect(){
+    game.classList.add('shake');flash.style.display='block';setTimeout(()=>flash.style.display='none',90);
+    splat.innerHTML='';
+    const blobs=[[50,48,25],[18,28,12],[82,22,10],[72,72,16],[27,78,9],[50,10,8],[94,55,12],[7,62,8],[38,37,11],[65,38,13]];
+    blobs.forEach(([px,py,s],i)=>{const b=document.createElement('div');b.className='blob';b.style.width=s+'vw';b.style.height=(s*.72)+'vw';b.style.left=(px-s/2)+'%';b.style.top=(py-s/2)+'%';b.style.animation=`splatIn .25s ${i*.018}s both`;splat.appendChild(b)});
+    for(let i=0;i<24;i++){const d=document.createElement('div');d.className='drip';const h=20+Math.random()*180;d.style.height=h+'px';d.style.left=Math.random()*100+'%';d.style.top=(Math.random()*35)+'%';d.style.transform=`rotate(${Math.random()*18-9}deg)`;d.style.animation=`splatIn .2s ${Math.random()*.2}s both`;splat.appendChild(d)}
+    splat.style.display='block';message.style.display='block';message.style.animation='slam .5s both';statusEl.textContent='💩 TEMPO ESGOTADO!';
+    setTimeout(()=>game.classList.remove('shake'),900);
+  }
+  function lose(){if(!running)return;running=false;stopPeido();playAudio(audioDiarreia,1);splatEffect()}
+  let lastRecognizedKey='';
+  let lastRecognizedAt=0;
+  let recognitionRestartTimer=null;
+
+  function normalizeVoiceText(text){
+    return text.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^\p{L}\s]/gu,' ')
+      .replace(/\s+/g,' ').trim();
+  }
+
+  function editDistance(a,b){
+    const m=a.length,n=b.length;
+    const d=Array.from({length:m+1},()=>Array(n+1).fill(0));
+    for(let i=0;i<=m;i++)d[i][0]=i;
+    for(let j=0;j<=n;j++)d[0][j]=j;
+    for(let i=1;i<=m;i++){
+      for(let j=1;j<=n;j++){
+        d[i][j]=Math.min(
+          d[i-1][j]+1,
+          d[i][j-1]+1,
+          d[i-1][j-1]+(a[i-1]===b[j-1]?0:1)
+        );
+      }
+    }
+    return d[m][n];
+  }
+
+  function closeToWord(word, candidates){
+    return candidates.some(candidate=>{
+      if(word===candidate) return true;
+      if(word.length>=4 && candidate.startsWith(word)) return true;
+      if(candidate.length>=4 && word.startsWith(candidate)) return true;
+      return editDistance(word,candidate)<=1;
+    });
+  }
+
+  function extractVoiceCommand(text){
+    const t=normalizeVoiceText(text);
+    if(!t) return null;
+
+    const words=t.split(/\s+/);
+
+    // "Pare" costuma ser transcrito pelo Android como "para", "pára",
+    // "pare aí", "para aí", "pare de..." ou pequenas variações.
+    if(/\bpare\b|\bpara\b|\bparar\b|\bparei\b|\bstop\b/.test(t)) return 'pare';
+
+    // "Siga" pode aparecer como "siga", "siga aí", "seguir",
+    // "siga em frente", "continue" ou com pequena falha de reconhecimento.
+    // Como o Android costuma ter dificuldade em captar essa palavra curta,
+    // aceitamos também sinônimos mais longos e fáceis de reconhecer.
+    if(/\bsiga\b|\bseguir\b|\bcontinue\b|\bcontinua\b|\bprossiga\b|\bvai\b|\banda\b|\bandar\b|\bavan[cç]a\b|\bavante\b|\bfrente\b|\bbora\b/.test(t)) return 'siga';
+
+    // Tolerância palavra a palavra para erros comuns de reconhecimento.
+    if(closeToWord(words[0]||'', ['siga','sigaai','seguir','continue','continua','prossiga','vai','anda','avanca','avante','bora'])) return 'siga';
+    if(closeToWord(words[0]||'', ['pare','para','parar','parei','stop'])) return 'pare';
+
+    if(/\bdireita\b|\bdireito\b/.test(t)) return 'direita';
+    if(/\besquerda\b|\besquerdo\b/.test(t)) return 'esquerda';
+
+    // "direita/esquerda" já funcionam bem, mas mantemos pequenas
+    // variações sem alterar o comportamento atual.
+    if(closeToWord(words[0]||'', ['direita','direito'])) return 'direita';
+    if(closeToWord(words[0]||'', ['esquerda','esquerdo'])) return 'esquerda';
+
+    return null;
+  }
+
+  function showVoiceCommand(label){
+    recognizedCommand.textContent='Comando: '+label;
+  }
+
+  function applyVoiceCommand(command){
+    if(!command || !running) return;
+
+    // O personagem é guiado inteiramente por voz:
+    // "siga" liga o avanço em direção ao banheiro, "pare" para tudo,
+    // e "esquerda"/"direita" desviam para cima/baixo sem interromper o avanço.
+    if(command==='pare'){
+      voiceForward=false;
+      voiceVertical=0;
+      showVoiceCommand('Pare ⛔');
+      statusEl.textContent='PARADO — diga "Siga", "Direita" ou "Esquerda" para continuar';
+      return;
+    }
+
+    if(command==='direita'){
+      voiceVertical=1;
+      voiceForward=true; // "direita"/"esquerda" retomam o avanço também,
+                          // já que são captadas com muito mais confiabilidade
+                          // que "siga" pelo motor de voz do Android.
+      showVoiceCommand('Direita ⬇️');
+      statusEl.textContent='AVANÇANDO E DESVIANDO PARA BAIXO';
+      return;
+    }
+
+    if(command==='esquerda'){
+      voiceVertical=-1;
+      voiceForward=true;
+      showVoiceCommand('Esquerda ⬆️');
+      statusEl.textContent='AVANÇANDO E DESVIANDO PARA CIMA';
+      return;
+    }
+
+    if(command==='siga'){
+      voiceForward=true;
+      showVoiceCommand('Siga ▶️');
+      statusEl.textContent='PERSONAGEM AVANÇANDO EM DIREÇÃO AO BANHEIRO';
+    }
+  }
+
+  function processVoiceTranscript(transcript){
+    const command=extractVoiceCommand(transcript);
+    if(!command) return;
+
+    const key=command;
+    const now=Date.now();
+
+    // Evita repetição, mas permite que o mesmo comando seja usado novamente
+    // depois de um pequeno intervalo.
+    if(key===lastRecognizedKey && now-lastRecognizedAt<900) return;
+    lastRecognizedKey=key;
+    lastRecognizedAt=now;
+    applyVoiceCommand(command);
+  }
+
+  // Android (Chrome) só libera microfone/reconhecimento de voz em contexto
+  // seguro (https:// ou localhost). Em http:// simples o botão nem funciona.
+  function isSecureContextOk(){
+    return window.isSecureContext ||
+      location.protocol==='https:' ||
+      location.hostname==='localhost' ||
+      location.hostname==='127.0.0.1';
+  }
+
+  // Pede a permissão de microfone explicitamente via getUserMedia antes de
+  // iniciar o SpeechRecognition. Em muitos navegadores Android isso evita
+  // falhas silenciosas de permissão e faz o prompt aparecer de forma confiável.
+  async function ensureMicPermission(){
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      stream.getTracks().forEach(t=>t.stop());
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  function safeStartRecognition(){
+    if(!recognition || recognitionStarting) return;
+    recognitionStarting=true;
+    try{
+      recognition.start();
+    }catch(e){
+      // "InvalidStateError" acontece quando o reconhecimento já está
+      // rodando (comum no Android após reinícios rápidos); ignoramos.
+      recognitionStarting=false;
+      if(e && e.name!=='InvalidStateError'){
+        voiceStatus.textContent='Toque novamente para iniciar o microfone';
+      }
+    }
+  }
+
+  function setupVoice(){
+    const SpeechRecognition=window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SpeechRecognition){
+      recognitionSupported=false;
+      micButton.disabled=true;
+      voiceStatus.textContent='Reconhecimento de voz não disponível neste navegador (use o Chrome no Android)';
+      return;
+    }
+    if(!isSecureContextOk()){
+      recognitionSupported=false;
+      micButton.disabled=true;
+      voiceStatus.textContent='Abra o jogo em https:// para usar o microfone';
+      return;
+    }
+
+    recognition=new SpeechRecognition();
+    recognition.lang='pt-BR';
+    recognition.continuous=true;
+    recognition.interimResults=true;
+    recognition.maxAlternatives=5;
+
+    recognition.onstart=()=>{
+      recognitionStarting=false;
+      micEnabled=true;
+      micButton.classList.add('active','voiceListening');
+      micButton.setAttribute('aria-pressed','true');
+      micButton.textContent='🎤 Desativar microfone';
+      voiceStatus.textContent='🟢 Ouvindo... fale o comando';
+    };
+
+    recognition.onspeechstart=()=>{
+      voiceStatus.textContent='👂 Escutando sua voz...';
+    };
+
+    recognition.onspeechend=()=>{
+      if(micEnabled) voiceStatus.textContent='🟢 Ouvindo...';
+    };
+
+    recognition.onresult=(event)=>{
+      for(let i=event.resultIndex;i<event.results.length;i++){
+        const result=event.results[i];
+
+        // Verifica as melhores alternativas; isso melhora a captura
+        // quando o navegador confunde uma palavra curta.
+        let bestCommand=null;
+        let bestTranscript='';
+
+        for(let a=0;a<result.length;a++){
+          const transcript=result[a].transcript || '';
+          const command=extractVoiceCommand(transcript);
+          if(command){
+            bestCommand=command;
+            bestTranscript=transcript;
+            break;
+          }
+          if(!bestTranscript) bestTranscript=transcript;
+        }
+
+        if(bestTranscript){
+          const command=bestCommand || extractVoiceCommand(bestTranscript);
+
+          if(command){
+            // Executa também no resultado provisório para não depender
+            // do encerramento da fala no Android.
+            processVoiceTranscript(bestTranscript);
+            recognizedCommand.textContent='Reconhecido: '+(
+              command==='siga'?'Siga ▶️':
+              command==='pare'?'Pare ⛔':
+              command==='direita'?'Direita ⬇️':'Esquerda ⬆️'
+            );
+          }else if(!result.isFinal){
+            recognizedCommand.textContent='Ouvindo: '+bestTranscript;
+          }
+        }
+      }
+    };
+
+    recognition.onerror=(event)=>{
+      recognitionStarting=false;
+
+      if(event.error==='not-allowed'||event.error==='service-not-allowed'){
+        // Permissão negada: paramos de tentar reiniciar sozinhos, senão
+        // o navegador Android fica pedindo permissão em loop.
+        micEnabled=false;
+        micButton.classList.remove('active','voiceListening');
+        micButton.setAttribute('aria-pressed','false');
+        micButton.textContent='🎤 Ativar microfone';
+        voiceStatus.textContent='Permissão do microfone negada — libere o microfone nas configurações do navegador e toque novamente';
+        return;
+      }
+
+      if(event.error==='no-speech'){
+        voiceStatus.textContent=micEnabled?'🟢 Ouvindo... (nenhuma fala detectada ainda)':'Microfone desligado';
+        return;
+      }
+
+      if(event.error==='audio-capture'){
+        micEnabled=false;
+        micButton.classList.remove('active','voiceListening');
+        micButton.setAttribute('aria-pressed','false');
+        micButton.textContent='🎤 Ativar microfone';
+        voiceStatus.textContent='Microfone não encontrado neste aparelho';
+        return;
+      }
+
+      if(event.error==='network'){
+        voiceStatus.textContent='Sem conexão para reconhecimento de voz — verifique a internet';
+        return;
+      }
+
+      if(event.error==='aborted'){
+        // Comum no Android ao reiniciar o reconhecimento rapidamente; ignora.
+        return;
+      }
+
+      voiceStatus.textContent=micEnabled?'🟢 Ouvindo...':'Aguardando voz...';
+    };
+
+    recognition.onend=()=>{
+      recognitionStarting=false;
+      micButton.classList.remove('voiceListening');
+
+      if(micEnabled){
+        // No Android o serviço de reconhecimento costuma encerrar sozinho
+        // após cada trecho de fala, mesmo com continuous=true. Reiniciamos
+        // automaticamente para manter o personagem sempre ouvindo comandos.
+        clearTimeout(recognitionRestartTimer);
+        recognitionRestartTimer=setTimeout(()=>{
+          if(micEnabled) safeStartRecognition();
+        },30);
+      }else{
+        micButton.classList.remove('active');
+        micButton.setAttribute('aria-pressed','false');
+        micButton.textContent='🎤 Ativar microfone';
+        voiceStatus.textContent='Microfone desligado';
+      }
+    };
+
+    micButton.addEventListener('click',async ()=>{
+      if(!recognition || !recognitionSupported) return;
+
+      if(micEnabled){
+        micEnabled=false;
+        clearTimeout(recognitionRestartTimer);
+        try{recognition.stop();}catch(e){}
+        return;
+      }
+
+      lastRecognizedKey='';
+      lastRecognizedAt=0;
+      micButton.disabled=true;
+      voiceStatus.textContent='Solicitando permissão do microfone...';
+
+      const granted=await ensureMicPermission();
+      micButton.disabled=false;
+
+      if(!granted){
+        voiceStatus.textContent='Permissão do microfone negada — libere o microfone nas configurações do navegador';
+        return;
+      }
+
+      // O avanço em direção ao banheiro começa automaticamente ao ligar
+      // o microfone — assim o jogo não depende de o motor de voz do Android
+      // reconhecer corretamente a palavra curta "siga". A voz então só
+      // precisa desviar (esquerda/direita) ou parar (pare).
+      if(running){
+        voiceForward=true;
+        statusEl.textContent='PERSONAGEM AVANÇANDO — diga "Esquerda"/"Direita" para desviar ou "Pare" para parar';
+      }
+
+      safeStartRecognition();
+    });
+  }
+
+  // Controle por giroscópio/acelerômetro (DeviceOrientation).
+  // Incline o celular para os lados: desvia para cima/baixo (mesmo
+  // significado de "esquerda"/"direita" na voz). Incline para frente
+  // (a partir da posição em que ativou): personagem anda. Endireite o
+  // celular para o personagem parar de andar.
+  function tiltPermissionNeeded(){
+    return typeof DeviceOrientationEvent!=='undefined' &&
+      typeof DeviceOrientationEvent.requestPermission==='function';
+  }
+
+  function onDeviceOrientation(e){
+    if(!tiltEnabled) return;
+    const beta=e.beta, gamma=e.gamma;
+    if(beta==null || gamma==null) return;
+
+    if(tiltBaselineBeta===null){
+      // Calibra usando a inclinação em que o jogador está segurando o
+      // celular no momento em que ativa o sensor, em vez de exigir que
+      // fique perfeitamente na vertical.
+      tiltBaselineBeta=beta;
+      tiltStatus.textContent='🟢 Giroscópio ativo — incline para os lados ou para frente';
+    }
+
+    const GAMMA_DEADZONE=6;
+    if(gamma>GAMMA_DEADZONE) tiltVertical=1;
+    else if(gamma<-GAMMA_DEADZONE) tiltVertical=-1;
+    else tiltVertical=0;
+
+    const BETA_FORWARD_THRESHOLD=10;
+    tiltForward=(beta-tiltBaselineBeta)>BETA_FORWARD_THRESHOLD;
+  }
+
+  function disableTilt(){
+    tiltEnabled=false;
+    tiltVertical=0;
+    tiltForward=false;
+    tiltBaselineBeta=null;
+    if(tiltListener){
+      window.removeEventListener('deviceorientation',tiltListener);
+      tiltListener=null;
+    }
+    tiltButton.classList.remove('active');
+    tiltButton.setAttribute('aria-pressed','false');
+    tiltButton.textContent='📱 Ativar giroscópio';
+    tiltStatus.textContent='Giroscópio desligado';
+  }
+
+  function setupTilt(){
+    if(typeof DeviceOrientationEvent==='undefined'){
+      tiltButton.disabled=true;
+      tiltStatus.textContent='Sensor de inclinação não disponível neste aparelho/navegador';
+      return;
+    }
+
+    tiltButton.addEventListener('click',async ()=>{
+      if(tiltEnabled){
+        disableTilt();
+        return;
+      }
+
+      tiltButton.disabled=true;
+      tiltStatus.textContent='Solicitando permissão de movimento/orientação...';
+
+      if(tiltPermissionNeeded()){
+        try{
+          const res=await DeviceOrientationEvent.requestPermission();
+          if(res!=='granted'){
+            tiltButton.disabled=false;
+            tiltStatus.textContent='Permissão de movimento/orientação negada — libere nas configurações do navegador';
+            return;
+          }
+        }catch(e){
+          tiltButton.disabled=false;
+          tiltStatus.textContent='Não foi possível solicitar permissão de orientação';
+          return;
+        }
+      }
+
+      tiltButton.disabled=false;
+      tiltBaselineBeta=null;
+      tiltEnabled=true;
+      tiltListener=onDeviceOrientation;
+      window.addEventListener('deviceorientation',tiltListener);
+      tiltButton.classList.add('active');
+      tiltButton.setAttribute('aria-pressed','true');
+      tiltButton.textContent='📱 Desativar giroscópio';
+      tiltStatus.textContent='Calibrando... segure o celular na posição de jogo';
+    });
+  }
+
+  function restart(){
+    stopPeido();audioDiarreia.pause();audioDiarreia.currentTime=0;
+    time=TOTAL;running=true;last=performance.now();keys={};win.style.display='none';splat.style.display='none';message.style.display='none';
+    timerEl.textContent=TOTAL.toFixed(1);timerEl.classList.remove('danger');statusEl.textContent='SAIA DA SUA SALA E CHEGUE AO BANHEIRO!';
+    voiceForward=micEnabled;
+    voiceVertical=0;
+    recognizedCommand.textContent='Comando: —';
+    if(tiltEnabled) tiltBaselineBeta=null; // recalibra na posição atual do celular
+    resetPosition();createEntities();
+  }
+  window.restart=restart;
+
+  addEventListener('keydown',e=>{
+    if(running)startPeido();
+    keys[e.key.toLowerCase()]=true;
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase()))e.preventDefault();
+  });
+  addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+  addEventListener('pointerdown',()=>{if(running)startPeido()});
+  addEventListener('resize',()=>{resetPosition();createEntities()});
+
+  function movePeople(dt){
+    people.forEach(p=>{
+      p.x+=p.dir*p.speed*dt;
+      if(p.x<corridor.left+20){p.x=corridor.left+20;p.dir=1}
+      if(p.x>corridor.right-70){p.x=corridor.right-70;p.dir=-1}
+      p.el.style.left=p.x+'px';
+    });
+  }
+
+  function loop(now){
+    const dt=Math.min(.04,(now-last)/1000);last=now;
+    if(running){
+      time-=dt;
+      if(time<=0){time=0;timerEl.textContent='0.0';lose()}
+      timerEl.textContent=time.toFixed(1);timerEl.classList.toggle('danger',time<8);
+      movePeople(dt);
+
+      const speed=190*dt;let dx=0,dy=0;
+      if(keys['arrowleft']||keys['a'])dx-=speed;
+      if(keys['arrowright']||keys['d'])dx+=speed;
+      if(keys['arrowup']||keys['w'])dy-=speed;
+      if(keys['arrowdown']||keys['s'])dy+=speed;
+
+      // Voz e giroscópio controlam o personagem juntos quando não há teclado:
+      // "siga"/inclinar p/ frente avança em direção ao banheiro;
+      // "esquerda"/"direita"/inclinar p/ os lados desviam para cima/baixo;
+      // "pare" zera o movimento por voz (o giroscópio some ao endireitar).
+      // Comandos de teclado sempre têm prioridade sobre voz e giroscópio.
+      const noKeys=!keys['arrowleft'] && !keys['a'] &&
+         !keys['arrowright'] && !keys['d'] &&
+         !keys['arrowup'] && !keys['w'] &&
+         !keys['arrowdown'] && !keys['s'];
+      if(noKeys){
+        const forward=voiceForward || (tiltEnabled && tiltForward);
+        // O giroscópio manda no desvio quando ativo (é entrada contínua em
+        // tempo real); sem ele, usa o último comando de voz recebido.
+        const vertical=(tiltEnabled && tiltVertical!==0) ? tiltVertical : voiceVertical;
+        if(forward) dx=speed;
+        if(vertical===-1) dy=-speed;
+        if(vertical===1) dy=speed;
+      }
+
+      // Colisão resolvida por eixo, separadamente (X depois Y).
+      // Antes, qualquer toque em obstáculo revertia X e Y juntos — isso
+      // travava o personagem quando avanço (voz) e desvio (voz) aconteciam
+      // ao mesmo tempo, mesmo quando só o desvio já resolveria o bloqueio.
+      // Assim, ele pode "deslizar" ao redor do obstáculo em vez de travar.
+      //
+      // A caixa de colisão do personagem é levemente menor que o círculo
+      // visível (prática comum em jogos) para o desvio ficar mais fluido e
+      // ter folga real — sem isso, tocar a borda do sprite já bloqueava o
+      // movimento antes de haver qualquer sobreposição visual perceptível.
+      const margin=Math.round(Math.min(PW,PH)*0.12);
+      const blocked=(bx,by)=>{
+        const test={x:bx+margin,y:by+margin,w:PW-margin*2,h:PH-margin*2};
+        return obstacles.some(o=>overlap(test,o))||people.some(p=>overlap(test,p));
+      };
+
+      if(dx!==0){
+        const nx=Math.max(corridor.left,Math.min(corridor.right-PW,x+dx));
+        if(!blocked(nx,y)) x=nx;
+      }
+      if(dy!==0){
+        const ny=Math.max(corridor.top,Math.min(corridor.bottom-PH,y+dy));
+        if(!blocked(x,ny)) y=ny;
+      }
+      placePlayer();
+
+      // A "chegada ao banheiro" agora é a linha pontilhada (borda esquerda
+      // de .toiletArea), não mais a sobreposição exata com o ícone do vaso.
+      // Basta o personagem cruzar essa linha para vencer.
+      const lineX=toiletArea.getBoundingClientRect().left;
+      const pr=player.getBoundingClientRect();
+      if(pr.right>=lineX)finishWin();
+    }
+    requestAnimationFrame(loop);
+  }
+  resetPosition();createEntities();statusEl.textContent='SAIA DA SUA SALA E CHEGUE AO BANHEIRO!';
+  setupVoice();
+  setupTilt();
+  setupMobilePresentation();
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>
